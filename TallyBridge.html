@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TallyBridge - Bank Statement Import Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #111827;
+            --bg-secondary: #1F2937;
+            --card-bg: #374151;
+            --text-primary: #F9FAFB;
+            --text-secondary: #D1D5DB;
+            --primary-blue: #3B82F6;
+            --primary-blue-hover: #2563EB;
+            --success-green: #10B981;
+            --warning-yellow: #F59E0B;
+            --danger-red: #EF4444;
+            --border-color: #4B5563;
+            --input-bg: #374151;
+            --hover-bg: #4B5563;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.6; }
+        .container { max-width: 95%; margin: 0 auto; padding: 20px; }
+        .header { position: relative; text-align: center; margin-bottom: 30px; padding: 20px 0; border-bottom: 2px solid var(--border-color); }
+        .header h1 { font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 10px; }
+        .header p { color: var(--text-secondary); font-size: 1.1rem; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .btn { background: var(--primary-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { background: var(--primary-blue-hover); transform: translateY(-1px); }
+        .btn-success { background: var(--success-green); }
+        .btn-warning { background: var(--warning-yellow); }
+        .btn-danger { background: var(--danger-red); }
+        .btn-secondary { background: var(--bg-secondary); border: 1px solid var(--border-color); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .input, .select { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px 14px; border-radius: 8px; font-size: 14px; width: 100%; transition: border-color 0.2s; }
+        .input:focus { outline: none; border-color: var(--primary-blue); }
+        
+        /* Summary Stats Header */
+        .summary-stats {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-item h3 {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .summary-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .summary-item.debit .value {
+            color: var(--danger-red);
+        }
+        .summary-item.credit .value {
+            color: var(--success-green);
+        }
+        .summary-item.count .value {
+            color: var(--primary-blue);
+        }
+        
+        .table-container { 
+            background: var(--bg-secondary); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 1px solid var(--border-color); 
+            max-height: 65vh; 
+            overflow-y: auto;
+            will-change: scroll-position;
+        }
+        .table { 
+            width: 100%; 
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .table th { 
+            background: var(--card-bg); 
+            color: var(--text-primary); 
+            padding: 14px 12px; 
+            text-align: left; 
+            font-weight: 600; 
+            border-bottom: 2px solid var(--border-color);
+            border-right: 1px solid var(--border-color); 
+            position: sticky; 
+            top: 0; 
+            z-index: 10;
+        }
+        .table th:last-child {
+            border-right: none;
+        }
+        .table th.sortable { cursor: pointer; }
+        .table th.sortable:hover { background-color: var(--hover-bg); }
+        .table td { 
+            padding: 12px; 
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            color: var(--text-secondary); 
+            vertical-align: top;
+        }
+        .table td:last-child {
+            border-right: none;
+        }
+        .table td.wrap { white-space: normal; max-width: 300px; word-wrap: break-word; }
+        .table tbody tr:hover { background: var(--hover-bg); }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: var(--card-bg); padding: 32px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary); }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+        .batch-card { background: var(--bg-secondary); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; }
+        .batch-card h4 { color: var(--primary-blue); margin-bottom: 10px; }
+        .batch-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .batch-stats { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-top: 15px; }
+        .progress-bar-container { background-color: var(--bg-primary); border-radius: 4px; height: 10px; margin-top: 10px; }
+        .progress-bar { background-color: var(--success-green); height: 100%; border-radius: 4px; transition: width 0.5s ease-in-out; }
+        .action-bar { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-row { background: var(--card-bg); position: sticky; top: 70px; z-index: 5; }
+        .filter-row td { border-bottom: 2px solid var(--border-color); }
+        .filter-row input, .filter-row select { padding: 8px; font-size: 12px; }
+        .filter-range-group { display: flex; gap: 5px; align-items: center; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .status-cleared { background-color: rgba(16, 185, 129, 0.2); color: #10B981; }
+        .status-pending { background-color: rgba(245, 159, 11, 0.2); color: #F59E0B; }
+        .upload-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 40px; text-align: center; background: var(--bg-secondary); transition: border-color 0.2s; cursor: pointer; }
+        .upload-area:hover { border-color: var(--primary-blue); }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .pagination-input {
+            width: 70px;
+            padding: 8px 10px;
+            text-align: center;
+            margin: 0 5px;
+            appearance: textfield;
+            -moz-appearance: textfield; /* Hide arrows in Firefox */
+        }
+        .pagination-input::-webkit-outer-spin-button,
+        .pagination-input::-webkit-inner-spin-button {
+            -webkit-appearance: none; /* Hide arrows in Chrome, Safari, Edge */
+            margin: 0;
+        }
+        .step-indicator { display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+        .step { display: flex; flex-direction: column; align-items: center; color: var(--text-secondary); transition: color 0.3s ease; }
+        .step.active { color: var(--primary-blue); }
+        .step-number { width: 30px; height: 30px; border-radius: 50%; background-color: var(--card-bg); border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease; }
+        .step.active .step-number { background-color: var(--primary-blue); border-color: var(--primary-blue); color: var(--text-primary); }
+        .step-label { margin-top: 10px; font-size: 0.9rem; }
+        .step-connector { flex-grow: 1; height: 2px; background-color: var(--border-color); margin: 0 20px; max-width: 200px; }
+        .ledger-table-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; margin-top: 20px; }
+        .ledger-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .ledger-table th { position: sticky; top: 0; background: var(--card-bg); border-right: 1px solid var(--border-color); }
+        .ledger-table th:last-child { border-right: none; }
+        .ledger-table td { border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+        .ledger-table td:last-child { border-right: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+        // --- IndexedDB Utilities ---
+        const DB_NAME = 'TallyBridge';
+        const DB_VERSION = 1;
+        const openDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('batches')) {
+                        const batchStore = db.createObjectStore('batches', { keyPath: 'id' });
+                        batchStore.createIndex('createdDate', 'createdDate');
+                    }
+                    if (!db.objectStoreNames.contains('ledgers')) {
+                        const ledgerStore = db.createObjectStore('ledgers', { keyPath: 'id', autoIncrement: true });
+                        ledgerStore.createIndex('batchId', 'batchId');
+                    }
+                    if (!db.objectStoreNames.contains('transactions')) {
+                        const transactionStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
+                        transactionStore.createIndex('batchId_status', ['batchId', 'status']);
+                    }
+                };
+            });
+        };
+        
+        const dbOperations = {
+            _promisify(request) {
+                return new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = (e) => reject(request.error);
+                });
+            },
+            async saveBatch(batch) {
+                const db = await openDB();
+                return this._promisify(db.transaction('batches', 'readwrite').objectStore('batches').put(batch));
+            },
+            async getBatches() {
+                const db = await openDB();
+                return this._promisify(db.transaction('batches', 'readonly').objectStore('batches').getAll());
+            },
+            async getBatchStats(batchId) {
+                const db = await openDB();
+                const tx = db.transaction('transactions', 'readonly');
+                const store = tx.objectStore('transactions');
+                const index = store.index('batchId_status');
+
+                const pendingRequest = index.count(IDBKeyRange.only([batchId, 'pending']));
+                const finalisedRequest = index.count(IDBKeyRange.only([batchId, 'finalised']));
+
+                const pending = await this._promisify(pendingRequest);
+                const finalised = await this._promisify(finalisedRequest);
+
+                return {
+                    total: pending + finalised,
+                    cleared: finalised,
+                    pending: pending,
+                };
+            },
+            async deleteBatch(batchId) {
+                const db = await openDB();
+                const tx = db.transaction(['batches', 'ledgers', 'transactions'], 'readwrite');
+                await this._promisify(tx.objectStore('batches').delete(batchId));
+                const ledgerStore = tx.objectStore('ledgers');
+                const ledgersToDelete = await this._promisify(ledgerStore.index('batchId').getAllKeys(batchId));
+                await Promise.all(ledgersToDelete.map(key => this._promisify(ledgerStore.delete(key))));
+                const txnStore = tx.objectStore('transactions');
+                const txnsToDelete = await this._promisify(txnStore.index('batchId_status').getAllKeys(IDBKeyRange.bound([batchId, ''], [batchId, 'ï¿¿'])));
+                await Promise.all(txnsToDelete.map(key => this._promisify(txnStore.delete(key))));
+                return tx.done;
+            },
+            async saveLedgers(ledgers) {
+                const db = await openDB();
+                const tx = db.transaction('ledgers', 'readwrite');
+                await Promise.all(ledgers.map(l => this._promisify(tx.objectStore('ledgers').put(l))));
+                return tx.done;
+            },
+            async getLedgersByBatch(batchId) {
+                const db = await openDB();
+                return this._promisify(db.transaction('ledgers', 'readonly').objectStore('ledgers').index('batchId').getAll(batchId));
+            },
+            async saveTransactions(transactions) {
+                const db = await openDB();
+                const tx = db.transaction('transactions', 'readwrite');
+                await Promise.all(transactions.map(t => this._promisify(tx.objectStore('transactions').put(t))));
+                return tx.done;
+            },
+            async getTransactionsByBatch(batchId, status) {
+                const db = await openDB();
+                const store = db.transaction('transactions', 'readonly').objectStore('transactions');
+                const index = store.index('batchId_status');
+                return this._promisify(index.getAll(IDBKeyRange.only([batchId, status])));
+            },
+            async updateTransaction(id, updates) {
+                const db = await openDB();
+                const tx = db.transaction('transactions', 'readwrite');
+                const store = tx.objectStore('transactions');
+                const record = await this._promisify(store.get(id));
+                if (record) {
+                    Object.assign(record, updates);
+                    return this._promisify(store.put(record));
+                }
+            },
+            async updateBatch(batchId, updates) {
+                const db = await openDB();
+                const tx = db.transaction('batches', 'readwrite');
+                const store = tx.objectStore('batches');
+                const record = await this._promisify(store.get(batchId));
+                if (record) {
+                    Object.assign(record, updates);
+                    return this._promisify(store.put(record));
+                }
+            },
+            async updateMultipleTransactions(ids, updates) {
+                const db = await openDB();
+                const tx = db.transaction('transactions', 'readwrite');
+                const store = tx.objectStore('transactions');
+                const promises = ids.map(async (id) => {
+                    const record = await this._promisify(store.get(id));
+                    if (record) {
+                        Object.assign(record, updates);
+                        await this._promisify(store.put(record));
+                    }
+                });
+                await Promise.all(promises);
+                return tx.done;
+            }
+        };
+        
+        const TALLY_GROUPS = ['Bank Accounts', 'Cash-in-Hand', 'Sundry Debtors', 'Sundry Creditors', 'Current Assets', 'Fixed Assets', 'Current Liabilities', 'Loans (Liability)', 'Capital Account', 'Reserves & Surplus', 'Sales Accounts', 'Purchase Accounts', 'Direct Expenses', 'Indirect Expenses', 'Direct Incomes', 'Indirect Incomes','Investments','Misc. Expenses (ASSET)','Suspense A/c','Deposits (Asset)','Loans & Advances (Asset)','Stock-in-hand','Duties & Taxes','Provisions','Bank OD A/c','Secured Loans','Unsecured Loans','Branch / Divisions'].sort();
+        
+        const formatDateDDMMYYYY = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Invalid Date';
+            const day = String(date.getUTCDate()).padStart(2, '0');
+            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const year = date.getUTCFullYear();
+            return `${day}/${month}/${year}`;
+        };
+        
+        const formatDateWithTime = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Invalid Date';
+            return date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        };
+        
+        const formatDateForTally = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '';
+            const year = date.getUTCFullYear();
+            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(date.getUTCDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        };
+
+        const parseExcelDate = (excelDate) => {
+            if (excelDate == null || excelDate === '') return null;
+
+            const utcMidnight = (y, m, d) => {
+                if (y < 1900 || y > 2100 || m < 0 || m > 11 || d < 1 || d > 31) return null;
+                // Use Date.UTC to create a timestamp, then create a Date object from it.
+                // This is timezone-agnostic.
+                const dt = new Date(Date.UTC(y, m, d));
+                // Check if the created date is valid (e.g., handles Feb 30)
+                if (dt.getUTCFullYear() === y && dt.getUTCMonth() === m && dt.getUTCDate() === d) {
+                    return dt;
+                }
+                return null;
+            };
+
+            if (excelDate instanceof Date && !isNaN(excelDate.getTime())) {
+                return utcMidnight(excelDate.getUTCFullYear(), excelDate.getUTCMonth(), excelDate.getUTCDate());
+            }
+
+            if (typeof excelDate === 'number' && excelDate > 1 && excelDate < 2958466) {
+                // Excel's epoch can be tricky (1900 leap year bug).
+                // A common formula is (excelDate - 25569) * 86400 * 1000
+                const msSinceEpoch = (excelDate - 25569) * 86400000;
+                const date = new Date(msSinceEpoch);
+                return utcMidnight(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+            }
+            
+            if (typeof excelDate === 'string') {
+                const dateStr = excelDate.trim();
+                let match;
+
+                // ISO format: YYYY-MM-DD (and optional time)
+                match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (match) {
+                    const [, y, m, d] = match.map(Number);
+                    const dt = utcMidnight(y, m - 1, d);
+                    if (dt) return dt;
+                }
+
+                // Common formats with slashes or dashes: D/M/Y, M/D/Y
+                match = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+                if (match) {
+                    let [, p1, p2, p3] = match;
+                    let year = parseInt(p3, 10);
+                    let month, day;
+
+                    // Handle 2-digit year
+                    if (year < 100) {
+                        year += (year > 50 ? 1900 : 2000); // Heuristic: 70 -> 1970, 30 -> 2030
+                    }
+                    
+                    p1 = parseInt(p1, 10);
+                    p2 = parseInt(p2, 10);
+
+                    // Disambiguate MM/DD vs DD/MM. If one part > 12, it must be the day.
+                    let dt = null;
+                    if (p1 > 12 && p2 <= 12) { // Clearly DD/MM/YYYY
+                        dt = utcMidnight(year, p2 - 1, p1);
+                    } else if (p1 <= 12 && p2 > 12) { // Clearly MM/DD/YYYY
+                        dt = utcMidnight(year, p1 - 1, p2);
+                    } else {
+                        // Ambiguous case (e.g., 03/04/2024). Assume DD/MM/YYYY first as it's common in India/Europe.
+                        dt = utcMidnight(year, p2 - 1, p1);
+                        if (!dt) {
+                            // If DD/MM was invalid (e.g., 31/02/2024), try MM/DD
+                            dt = utcMidnight(year, p1 - 1, p2);
+                        }
+                    }
+                    if (dt) return dt;
+                }
+
+                // Final fallback to native Date parser for other formats like "Jan 1, 2024"
+                const parsed = new Date(dateStr);
+                if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900) {
+                    // Be careful here, this could be timezone-sensitive.
+                    // Extract components and rebuild in UTC.
+                    return utcMidnight(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+                }
+            }
+
+            console.warn("Could not parse date:", excelDate);
+            return null; // Return null if all parsing fails
+        };
+        
+        const generateXML = (type, data) => {
+            let header = '<?xml version="1.0" ?>\n<ENVELOPE>\n  <HEADER>\n    <TALLYREQUEST>Import Data</TALLYREQUEST>\n  </HEADER>\n  <BODY>\n    <IMPORTDATA>\n      <REQUESTDESC>\n';
+            let footer = '      </REQUESTDATA>\n    </IMPORTDATA>\n  </BODY>\n</ENVELOPE>';
+            let body = '';
+
+            if (type === 'masters') {
+                header += '        <REPORTNAME>All Masters</REPORTNAME>\n        <STATICVARIABLES>\n          <SVCURRENTCOMPANY/>\n        </STATICVARIABLES>\n      </REQUESTDESC>\n      <REQUESTDATA>\n';
+                
+                data.forEach(ledger => {
+                    const ledgerName = escapeXML(ledger.name);
+                    const ledgerGroup = escapeXML(ledger.group);
+
+                    const balanceType = ledger.drCr === 'Cr' ? 'CR' : 'DR';
+                    const balanceAmount = Math.abs(ledger.openingBalance || 0);
+                    
+                    // Inverse logic: DR balances are negative, CR balances are positive.
+                    const displayBalance = balanceType === 'DR' ? -balanceAmount : balanceAmount;
+
+                    const isDeemedPositive = 'Yes';
+
+                    body += `        <TALLYMESSAGE xmlns:UDF="TallyUDF" ACTION="Create">\n` +
+                            `          <LEDGER NAME="${ledgerName}" ACTION="Create">\n` +
+                            `            <NAME.LIST>\n` +
+                            `              <NAME>${ledgerName}</NAME>\n` +
+                            `            </NAME.LIST>\n` +
+                            `            <PARENT>${ledgerGroup}</PARENT>\n` +
+                            `            <OPENINGBALANCE TYPE="${balanceType}">${displayBalance}</OPENINGBALANCE>\n` +
+                            `            <ISDEEMEDPOSITIVE>${isDeemedPositive}</ISDEEMEDPOSITIVE>\n` +
+                            `            <ISCOSTCENTREON>No</ISCOSTCENTREON>\n` +
+                            `            <AFFECTSSTOCK>No</AFFECTSSTOCK>\n` +
+                            `          </LEDGER>\n` +
+                            `        </TALLYMESSAGE>\n`;
+                });
+            } else if (type === 'vouchers') {
+                header += '        <REPORTNAME>Vouchers</REPORTNAME>\n        <STATICVARIABLES>\n          <SVCURRENTCOMPANY></SVCURRENTCOMPANY>\n        </STATICVARIABLES>\n      </REQUESTDESC>\n      <REQUESTDATA>\n';
+                data.forEach((voucher, index) => {
+                    const date = formatDateForTally(voucher.date);
+                    const guid = `guid-${date}-row-${index}-${voucher.amount}`.replace(/\s/g, '-');
+                    body += `      <TALLYMESSAGE xmlns:UDF="TallyUDF">\n        <VOUCHER REMOTEID="${guid}" VCHTYPE="${voucher.voucherType}" ACTION="Create">\n          <VOUCHERTYPENAME>${voucher.voucherType}</VOUCHERTYPENAME>\n          <DATE>${date}</DATE>\n          <EFFECTIVEDATE>${date}</EFFECTIVEDATE>\n          <NARRATION>${voucher.narration || ''}</NARRATION>\n          <GUID>${guid}</GUID>\n          <ALLLEDGERENTRIES.LIST>\n            <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>\n            <LEDGERNAME>${voucher.debitLedger}</LEDGERNAME>\n            <AMOUNT>-${voucher.amount}</AMOUNT>\n          </ALLLEDGERENTRIES.LIST>\n          <ALLLEDGERENTRIES.LIST>\n            <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>\n            <LEDGERNAME>${voucher.creditLedger}</LEDGERNAME>\n            <AMOUNT>${voucher.amount}</AMOUNT>\n          </ALLLEDGERENTRIES.LIST>\n        </VOUCHER>\n      </TALLYMESSAGE>\n`;
+                });
+            }
+            return header + body + footer;
+        };
+        
+        const downloadFile = (content, filename, contentType) => {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const escapeXML = (str) => {
+            if (typeof str !== 'string') return '';
+            return str.replace(/[<>&"']/g, (c) => {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '"': return '&quot;';
+                    case "'": return '&apos;';
+                }
+            });
+        };
+
+        // Export/Import Batch Functions
+        const exportBatchData = async (batchId) => {
+            try {
+                // Gather all data related to this batch
+                const batch = (await dbOperations.getBatches()).find(b => b.id === batchId);
+                if (!batch) throw new Error('Batch not found');
+
+                const ledgers = await dbOperations.getLedgersByBatch(batchId);
+                const pendingTransactions = await dbOperations.getTransactionsByBatch(batchId, 'pending');
+                const finalisedTransactions = await dbOperations.getTransactionsByBatch(batchId, 'finalised');
+
+                // Structure the export data
+                const exportData = {
+                    version: '1.0',
+                    exportDate: new Date().toISOString(),
+                    batch: batch,
+                    ledgers: ledgers,
+                    transactions: {
+                        pending: pendingTransactions,
+                        finalised: finalisedTransactions
+                    }
+                };
+
+                // Create filename and download
+                const filename = `TallyBridge_${batch.companyName}_${batch.bankName || 'Batch'}_${formatDateDDMMYYYY(new Date())}.json`.replace(/[^a-z0-9_\-\.]/gi, '_');
+                downloadFile(JSON.stringify(exportData, null, 2), filename, 'application/json');
+                
+                alert('Batch exported successfully!');
+            } catch (error) {
+                console.error('Export error:', error);
+                alert(`Export failed: ${error.message}`);
+            }
+        };
+
+        const importBatchData = async (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = async (e) => {
+                    try {
+                        // Parse JSON
+                        const importData = JSON.parse(e.target.result);
+                        
+                        // Validate structure
+                        if (!importData.version || !importData.batch || !importData.ledgers || !importData.transactions) {
+                            throw new Error('Invalid batch file format. Missing required fields.');
+                        }
+
+                        // Check for batch ID conflict
+                        const existingBatches = await dbOperations.getBatches();
+                        const conflict = existingBatches.find(b => b.id === importData.batch.id);
+                        
+                        if (conflict) {
+                            // Generate new batch ID to avoid conflict
+                            const newBatchId = `batch_${Date.now()}`;
+                            const oldBatchId = importData.batch.id;
+                            
+                            // Update batch ID
+                            importData.batch.id = newBatchId;
+                            importData.batch.importedDate = new Date().toISOString();
+                            
+                            // Update batchId references in ledgers
+                            importData.ledgers.forEach(ledger => {
+                                ledger.batchId = newBatchId;
+                            });
+                            
+                            // Update batchId references in transactions
+                            [...importData.transactions.pending, ...importData.transactions.finalised].forEach(txn => {
+                                txn.batchId = newBatchId;
+                            });
+                            
+                            console.log(`Batch ID conflict resolved: ${oldBatchId} → ${newBatchId}`);
+                        }
+
+                        // Save to IndexedDB
+                        await dbOperations.saveBatch(importData.batch);
+                        await dbOperations.saveLedgers(importData.ledgers);
+                        
+                        const allTransactions = [
+                            ...importData.transactions.pending,
+                            ...importData.transactions.finalised
+                        ];
+                        await dbOperations.saveTransactions(allTransactions);
+
+                        resolve({
+                            success: true,
+                            batch: importData.batch,
+                            stats: {
+                                ledgers: importData.ledgers.length,
+                                pending: importData.transactions.pending.length,
+                                finalised: importData.transactions.finalised.length
+                            }
+                        });
+
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+        };
+
+        function CompanyNameModal({ onSave, onClose, companyName, setCompanyName }) {
+            return (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h3 style={{ marginBottom: '20px' }}>Enter Tally Company Name</h3>
+                        <div className="form-group">
+                            <label>Company Name *</label>
+                            <input
+                                type="text"
+                                className="input"
+                                value={companyName}
+                                onChange={(e) => setCompanyName(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                            <button type="button" className="btn" onClick={onSave}>Continue</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function StepIndicator({ currentStep }) {
+            return (
+                <div className="step-indicator">
+                    <div className={`step ${currentStep === 1 ? 'active' : ''}`}>
+                        <div className="step-number">1</div>
+                        <div className="step-label">Import Masters</div>
+                    </div>
+                    <div className="step-connector"></div>
+                    <div className={`step ${currentStep === 2 ? 'active' : ''}`}>
+                        <div className="step-number">2</div>
+                        <div className="step-label">Import Bank Statement</div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ImportBatchModal({ onClose, onImport, isImporting }) {
+            const fileInputRef = useRef(null);
+            const [selectedFile, setSelectedFile] = useState(null);
+
+            const handleFileSelect = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    setSelectedFile(e.target.files[0]);
+                }
+            };
+
+            const handleImport = () => {
+                if (selectedFile) {
+                    onImport(selectedFile);
+                }
+            };
+
+            return (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h3 style={{ marginBottom: '20px' }}>Import Batch from File</h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                            Select a previously exported TallyBridge batch file (.json) to restore all data including ledgers and transactions.
+                        </p>
+                        
+                        <div className="form-group">
+                            <label>Select Batch File</label>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleFileSelect}
+                                    style={{ display: 'none' }}
+                                />
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isImporting}
+                                >
+                                    Choose File
+                                </button>
+                                {selectedFile && (
+                                    <span style={{ color: 'var(--text-secondary)' }}>
+                                        {selectedFile.name}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ 
+                            background: 'var(--bg-secondary)', 
+                            padding: '15px', 
+                            borderRadius: '8px',
+                            marginTop: '15px',
+                            border: '1px solid var(--border-color)'
+                        }}>
+                            <h4 style={{ marginBottom: '10px', fontSize: '14px' }}>Import Information:</h4>
+                            <ul style={{ 
+                                fontSize: '13px', 
+                                color: 'var(--text-secondary)',
+                                paddingLeft: '20px',
+                                lineHeight: '1.8'
+                            }}>
+                                <li>All batch data will be restored</li>
+                                <li>If batch ID conflicts, a new ID will be automatically assigned</li>
+                                <li>You can continue working immediately after import</li>
+                            </ul>
+                        </div>
+
+                        <div className="modal-footer">
+                            <button 
+                                className="btn btn-secondary" 
+                                onClick={onClose}
+                                disabled={isImporting}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="btn btn-success" 
+                                onClick={handleImport}
+                                disabled={!selectedFile || isImporting}
+                            >
+                                {isImporting ? 'Importing...' : 'Import Batch'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App & Page Components ---
+        function TallyBridge() {
+            const [currentPage, setCurrentPage] = useState(() => sessionStorage.getItem('currentPage') || 'dashboard');
+            const [currentBatch, setCurrentBatch] = useState(() => {
+                const savedBatch = sessionStorage.getItem('currentBatch');
+                return savedBatch ? JSON.parse(savedBatch) : null;
+            });
+            const [batches, setBatches] = useState([]);
+            const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+            const [companyName, setCompanyName] = useState('');
+
+            useEffect(() => {
+                loadBatches();
+            }, []);
+
+            useEffect(() => {
+                sessionStorage.setItem('currentPage', currentPage);
+                if (currentBatch) {
+                    sessionStorage.setItem('currentBatch', JSON.stringify(currentBatch));
+                } else {
+                    sessionStorage.removeItem('currentBatch');
+                }
+            }, [currentPage, currentBatch]);
+
+            const loadBatches = async () => {
+                try {
+                    const batchList = await dbOperations.getBatches();
+                    const batchesWithStats = await Promise.all(
+                        batchList.map(async (batch) => {
+                            const stats = await dbOperations.getBatchStats(batch.id);
+                            return { ...batch, stats };
+                        })
+                    );
+                    setBatches(batchesWithStats.sort((a, b) => {
+                        const dateA = a.lastModified ? new Date(a.lastModified) : new Date(a.createdDate);
+                        const dateB = b.lastModified ? new Date(b.lastModified) : new Date(b.createdDate);
+                        return dateB - dateA;
+                    }));
+                } catch (error) { console.error('Error loading batches:', error); }
+            };
+
+            const startNewBatch = () => {
+                setIsCompanyModalOpen(true);
+            };
+
+            const handleCompanyModalSubmit = () => {
+                if (!companyName) {
+                    alert('Company name is required.');
+                    return;
+                }
+                const newBatch = { id: `batch_${Date.now()}`, companyName, bankName: '', createdDate: new Date().toISOString(), status: 'in-progress' };
+                setCurrentBatch(newBatch);
+                setCurrentPage('import');
+                setIsCompanyModalOpen(false);
+                setCompanyName('');
+            };
+            
+            const continueBatch = (batch) => { setCurrentBatch(batch); setCurrentPage('clearing'); };
+            const deleteBatch = async (batchId) => {
+                if (confirm('Are you sure you want to delete this batch? This action cannot be undone.')) {
+                    try {
+                        await dbOperations.deleteBatch(batchId);
+                        loadBatches();
+                    } catch (error) { console.error('Error deleting batch:', error); alert('Error deleting batch'); }
+                }
+            };
+            const goToDashboard = () => { setCurrentPage('dashboard'); setCurrentBatch(null); loadBatches(); };
+            const goToClearing = () => { setCurrentPage('clearing'); };
+            const goToFinalise = () => { setCurrentPage('finalise'); };
+            const pageComponents = {
+                dashboard: <Dashboard batches={batches} onStartNew={startNewBatch} onContinue={continueBatch} onDelete={deleteBatch} />,
+                import: <ImportPage batch={currentBatch} onComplete={(b) => { setCurrentBatch(b); setCurrentPage('clearing'); }} onBack={goToDashboard} />,
+                clearing: <ClearingPage batch={currentBatch} onBack={goToDashboard} onGoToFinalise={goToFinalise} />,
+                finalise: <FinalisePage batch={currentBatch} onBack={goToClearing} onBackToDashboard={goToDashboard} />
+            };
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>TallyBridge</h1>
+                        <p>Powerful Bank Statement Clearance Tool for Tally</p>
+                        <a href="./Creator.html" className="btn" style={{position: 'absolute', top: '28px', right: '180px'}}>Creator</a>
+                        <a href="./Documentation.html" className="btn" style={{position: 'absolute', top: '28px', right: '20px'}}>Documentation</a>
+                    </div>
+                    {pageComponents[currentPage]}
+                    {isCompanyModalOpen && (
+                        <CompanyNameModal
+                            onSave={handleCompanyModalSubmit}
+                            onClose={() => setIsCompanyModalOpen(false)}
+                            companyName={companyName}
+                            setCompanyName={setCompanyName}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function Dashboard({ batches, onStartNew, onContinue, onDelete }) {
+            const [searchQuery, setSearchQuery] = useState('');
+            const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+            const [isImporting, setIsImporting] = useState(false);
+
+            const handleImportBatch = async (file) => {
+                if (!file || !file.name.endsWith('.json')) {
+                    alert('Please select a valid JSON file');
+                    return;
+                }
+
+                setIsImporting(true);
+                try {
+                    const result = await importBatchData(file);
+                    alert(`Batch imported successfully!\n\nLedgers: ${result.stats.ledgers}\nPending Transactions: ${result.stats.pending}\nFinalised Transactions: ${result.stats.finalised}`);
+                    setIsImportModalOpen(false);
+                    onStartNew(); // Refresh the batch list - this will trigger loadBatches
+                    window.location.reload(); // Reload to refresh the dashboard
+                } catch (error) {
+                    console.error('Import error:', error);
+                    alert(`Import failed: ${error.message}`);
+                } finally {
+                    setIsImporting(false);
+                }
+            };
+
+            const filteredBatches = batches.filter(batch => {
+                const searchTerm = searchQuery.toLowerCase();
+                const companyName = batch.companyName?.toLowerCase() || '';
+                const bankName = batch.bankName?.toLowerCase() || '';
+                return companyName.includes(searchTerm) || bankName.includes(searchTerm);
+            });
+
+            return (
+                <div className="dashboard-grid">
+                    <div className="card">
+                        <h3 style={{ marginBottom: '20px', color: 'var(--primary-blue)' }}>Start New Bank Statement Import</h3>
+                        <p style={{ marginBottom: '20px', color: 'var(--text-secondary)' }}>Begin a New Bank Statement clearance process by importing your Tally Master ledgers and Bank Statement.</p>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <button className="btn btn-success" onClick={onStartNew}>Start with New Bank Statement</button>
+                            <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>Import Existing Batch</button>
+                        </div>
+                    </div>
+                    <div className="card">
+                        <h3 style={{ marginBottom: '20px', color: 'var(--primary-blue)' }}>Continue Previous Work</h3>
+                        <div className="form-group">
+                            <input
+                                type="search"
+                                className="input"
+                                placeholder="Search by company or bank name..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            {filteredBatches.length === 0 ? (
+                                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No previous batches found.</p>
+                            ) : (
+                                filteredBatches.map(batch => {
+                                    const stats = batch.stats || { total: 0, cleared: 0, pending: 0 };
+                                    const progress = stats.total > 0 ? (stats.cleared / stats.total) * 100 : 0;
+                                    return (
+                                        <div key={batch.id} className="batch-card">
+                                            <h4>{batch.companyName} - {batch.bankName || 'Unnamed Batch'}</h4>
+                                            <p style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                                            Created: {formatDateDDMMYYYY(batch.createdDate)}
+                                            {batch.lastModified && ` | Last Modified: ${formatDateWithTime(batch.lastModified)}`}
+                                        </p>
+                                            
+                                            <div className="batch-stats">
+                                                <span>Total: {stats.total}</span>
+                                                <span style={{ color: 'var(--success-green)' }}>Cleared: {stats.cleared}</span>
+                                                <span style={{ color: 'var(--warning-yellow)' }}>Pending: {stats.pending}</span>
+                                            </div>
+                                            <div className="progress-bar-container">
+                                                <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                                            </div>
+
+                                            <div className="batch-actions">
+                                                <button className="btn" onClick={() => onContinue(batch)}>Continue</button>
+                                                <button className="btn btn-warning" onClick={() => exportBatchData(batch.id)}>Export</button>
+                                                <button className="btn btn-danger" onClick={() => onDelete(batch.id)}>Delete</button>
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Import Modal */}
+                    {isImportModalOpen && (
+                        <ImportBatchModal 
+                            onClose={() => setIsImportModalOpen(false)}
+                            onImport={handleImportBatch}
+                            isImporting={isImporting}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        function Instructions() {
+            return (
+                <div className="card" style={{marginTop: '20px'}}>
+                    <h3>How to Export Masters from Tally</h3>
+                    <ol>
+                        <li>In "Gateway of Tally", press <strong>Alt + E</strong> (Export).</li>
+                        <li>Select <strong>Masters</strong> and press Enter.</li>
+                        <li>Press <strong>C</strong> (Configure).</li>
+                        <li>Set "File Format" to <strong>ASCII (Comma delimited)</strong>.</li>
+                        <li>Set the <strong>Folder Path</strong> and <strong>File Name</strong>.</li>
+                        <li>Press <strong>Ctrl + A</strong> to save configuration.</li>
+                        <li>Press <strong>E</strong> (Send) to export the <strong>.txt</strong> file.</li>
+                    </ol>
+                </div>
+            );
+        }
+
+        function ImportPage({ batch, onComplete, onBack }) {
+            if (!batch) return null;
+            const [masterLedgers, setMasterLedgers] = useState([]);
+            const [bankFile, setBankFile] = useState(null);
+            const [bankAccount, setBankAccount] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+            const [isCreateLedgerOpen, setIsCreateLedgerOpen] = useState(false);
+            const [importStep, setImportStep] = useState(1);
+
+            const handleMasterFile = async (file) => {
+                if (!file || !file.name.endsWith('.txt')) { setError('Please upload a valid .txt Tally export.'); return; }
+                setIsLoading(true); setError('');
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const text = e.target.result;
+                        const uniqueLedgerNames = [...new Set(text.match(/'([^']*)'|"([^"]*)"/g)?.map(m => m.slice(1, -1).trim()).filter(Boolean) || [])].sort();
+                        const ledgersToSave = uniqueLedgerNames.map(name => ({ batchId: batch.id, name, isMaster: true, group: '' }));
+                        await dbOperations.saveLedgers(ledgersToSave);
+                        setMasterLedgers(ledgersToSave);
+                        setIsLoading(false);
+                    };
+                    reader.readAsText(file);
+                } catch (err) { setError(err.message); setIsLoading(false); }
+            };
+
+            const handleBankFile = (file) => {
+                if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                    setBankFile(file);
+                    setIsBankModalOpen(true);
+                    setError('');
+                } else { setError('Invalid file type. Please select an Excel file.'); }
+            };
+
+            const handleSaveNewLedger = async (newLedgerData) => {
+                const ledgerToSave = { ...newLedgerData, batchId: batch.id, isMaster: false };
+                await dbOperations.saveLedgers([ledgerToSave]);
+                const updatedLedgers = [...masterLedgers, ledgerToSave].sort((a, b) => a.name.localeCompare(b.name));
+                setMasterLedgers(updatedLedgers);
+                setBankAccount(ledgerToSave.name); // Auto-select the new ledger
+                setIsCreateLedgerOpen(false);
+            };
+
+            const handleConfirm = async () => {
+                if (!bankAccount || !bankFile) { setError('Please select a bank account and a bank statement file.'); return; }
+                setIsLoading(true);
+                try {
+                    const updatedBatch = { ...batch, bankName: bankAccount };
+                    await dbOperations.saveBatch(updatedBatch);
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+                            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
+                            if (json.length === 0) throw new Error("Excel file is empty or has an incorrect format.");
+                            
+                            const transactionsToSave = json.map((row, i) => {
+                                let parsedDate = null;
+                                // New logic: Construct date from Day, Month, Year columns
+                                const day = parseInt(row.Day, 10);
+                                const month = parseInt(row.Month, 10);
+                                const year = parseInt(row.Year, 10);
+
+                                // Check if day, month, and year are valid numbers before creating a date
+                                if (!isNaN(day) && !isNaN(month) && !isNaN(year) && year > 1900 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                                    // Use Date.UTC to create a timezone-safe date object. Month is 0-indexed for JS Date.
+                                    const utcDate = new Date(Date.UTC(year, month - 1, day));
+                                    // Verify that the date is valid (e.g., handles non-existent dates like Feb 30)
+                                    if (utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day) {
+                                        parsedDate = utcDate;
+                                    } else {
+                                        console.warn(`Invalid date components for row ${i + 2}:`, { Day: row.Day, Month: row.Month, Year: row.Year });
+                                    }
+                                } else {
+                                    console.warn(`Could not parse date components from row ${i + 2}:`, { Day: row.Day, Month: row.Month, Year: row.Year });
+                                }
+                                
+                                return {
+                                    batchId: batch.id,
+                                    date: parsedDate ? parsedDate.toISOString() : null,
+                                    particulars: row.Particulars || '',
+                                    debit: parseFloat(row['Debit(Rs.)']) || 0,
+                                    credit: parseFloat(row['Credit(Rs.)']) || 0,
+                                    voucherType: (parseFloat(row['Debit(Rs.)']) || 0) > 0 ? 'Payment' : 'Receipt',
+                                    mappedLedger: null,
+                                    status: 'pending'
+                                };
+                            }).filter(t => t.date); // Important: filter out any rows where the date could not be parsed.
+                            
+                            await dbOperations.saveTransactions(transactionsToSave);
+                            onComplete(updatedBatch);
+                        } catch (err) {
+                            console.error("Error during file processing:", err);
+                            setError(`File Processing Error: ${err.message}`);
+                            setIsLoading(false);
+                        }
+                    };
+                    reader.readAsArrayBuffer(bankFile);
+                } catch (err) { setError(err.message); setIsLoading(false); }
+            };
+
+            return (
+                <div className="card">
+                    <StepIndicator currentStep={importStep} />
+                    <button className="btn btn-secondary" onClick={onBack} style={{marginBottom: '20px'}}>Back to Dashboard</button>
+                    
+                    {importStep === 1 && (
+                        <div>
+                            <h2>Step 1: Import Tally Masters for <span style={{color: 'var(--primary-blue)'}}>{batch.companyName}</span></h2>
+                            {error && <p style={{color: 'var(--danger-red)'}}>{error}</p>}
+                            {masterLedgers.length === 0 ? (
+                                <div>
+                                    <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginTop: '20px'}}>
+                                        <div>
+                                            <h3>Tally Master Ledgers (.txt)</h3>
+                                            <FileUpload label="Upload Master File" accept=".txt" onFileSelect={handleMasterFile} disabled={isLoading} />
+                                        </div>
+                                    </div>
+                                    <Instructions />
+                                </div>
+                            ) : (
+                                <div>
+                                    <p>{masterLedgers.length} ledgers loaded.</p>
+                                    <div className="ledger-table-container">
+                                        <table className="ledger-table">
+                                            <thead>
+                                                <tr><th>#</th><th>Ledger Name</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {masterLedgers.map((ledger, index) => (
+                                                    <tr key={ledger.name + index}><td>{index + 1}</td><td>{ledger.name}</td></tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button className="btn" onClick={() => setImportStep(2)} style={{marginTop: '20px'}}>Next</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {importStep === 2 && (
+                        <div>
+                            <h2>Step 2: Import Bank Statement for <span style={{color: 'var(--primary-blue)'}}>{batch.companyName}</span></h2>
+                            {error && <p style={{color: 'var(--danger-red)'}}>{error}</p>}
+                            <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginTop: '20px'}}>
+                                <div>
+                                    <h3>Bank Statement (.xlsx)</h3>
+                                    <a href="./bank_statement.xlsx" download className="btn btn-secondary">Download Template</a>
+                                    <FileUpload label="Upload Bank Statement" accept=".xlsx, .xls" onFileSelect={handleBankFile} disabled={isLoading} />
+                                    {bankFile && <p>Selected: {bankFile.name}</p>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {isBankModalOpen && (
+                        <div className="modal">
+                            <div className="modal-content">
+                                {!isCreateLedgerOpen ? (
+                                    <>
+                                        <h3 style={{marginBottom: '20px'}}>Select Bank Account</h3>
+                                        <div className="form-group">
+                                            <label>Choose the ledger that corresponds to this bank statement.</label>
+                                            <select className="select" value={bankAccount} onChange={e => setBankAccount(e.target.value)}>
+                                                <option value="">-- Select Bank Account Ledger --</option>
+                                                {masterLedgers.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <button className="btn btn-secondary" onClick={() => setIsCreateLedgerOpen(true)}>+ Create New Ledger</button>
+                                        <div className="modal-footer">
+                                            <button className="btn btn-secondary" onClick={() => setIsBankModalOpen(false)}>Cancel</button>
+                                            <button className="btn" onClick={handleConfirm} disabled={isLoading || !bankAccount}>{isLoading ? 'Processing...' : 'Confirm & Start Clearing'}</button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <CreateLedgerModal onClose={() => setIsCreateLedgerOpen(false)} onSave={handleSaveNewLedger} />
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function ClearingPage({ batch, onBack, onGoToFinalise }) {
+            if (!batch) return null;
+            const initialFilters = { particulars: '', dateFrom: '', dateTo: '', debitFrom: '', debitTo: '', creditFrom: '', creditTo: '', voucherType: '', mappedLedger: '' };
+            const [transactions, setTransactions] = useState([]);
+            const [ledgers, setLedgers] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [currentPage, setCurrentPage] = useState(1);
+            const [selectedRows, setSelectedRows] = useState(new Set());
+            const [isBulkMapModalOpen, setIsBulkMapModalOpen] = useState(false);
+            const [isCreateLedgerOpen, setIsCreateLedgerOpen] = useState(false);
+            const [filters, setFilters] = useState(initialFilters);
+            const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'ascending' });
+            const ITEMS_PER_PAGE = 100;
+
+            const loadData = async () => {
+                setLoading(true);
+                const [txns, lgrs] = await Promise.all([
+                    dbOperations.getTransactionsByBatch(batch.id, 'pending'),
+                    dbOperations.getLedgersByBatch(batch.id)
+                ]);
+                setTransactions(txns);
+                setLedgers(lgrs.sort((a, b) => a.name.localeCompare(b.name)));
+                setLoading(false);
+            };
+
+            useEffect(() => { loadData(); }, [batch.id]);
+
+            const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
+
+            const requestSort = (key) => {
+                let direction = 'ascending';
+                if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
+                setSortConfig({ key, direction });
+            };
+
+            const handleLedgerMap = async (txnId, mappedLedger) => {
+                await dbOperations.updateTransaction(txnId, { mappedLedger });
+                await dbOperations.updateBatch(batch.id, { lastModified: new Date().toISOString() });
+                setTransactions(transactions.map(t => t.id === txnId ? { ...t, mappedLedger } : t));
+            };
+
+            const handleApplyBulkMap = async (mappedLedger) => {
+                const idsToUpdate = Array.from(selectedRows);
+                await dbOperations.updateMultipleTransactions(idsToUpdate, { mappedLedger });
+                await dbOperations.updateBatch(batch.id, { lastModified: new Date().toISOString() });
+                setTransactions(transactions.map(t => idsToUpdate.includes(t.id) ? { ...t, mappedLedger } : t));
+                setSelectedRows(new Set());
+                setIsBulkMapModalOpen(false);
+            };
+
+            const handleSaveNewLedger = async (newLedgerData) => {
+                const ledgerToSave = { ...newLedgerData, batchId: batch.id, isMaster: false };
+                await dbOperations.saveLedgers([ledgerToSave]);
+                await dbOperations.updateBatch(batch.id, { lastModified: new Date().toISOString() });
+                setLedgers([...ledgers, ledgerToSave].sort((a, b) => a.name.localeCompare(b.name)));
+                setIsCreateLedgerOpen(false);
+            };
+
+            const handlePushToFinalise = async () => {
+                const mappedTxns = transactions.filter(t => t.mappedLedger);
+                if (mappedTxns.length === 0) {
+                    alert("No transactions have been mapped yet.");
+                    return;
+                }
+                const idsToFinalise = mappedTxns.map(t => t.id);
+                await dbOperations.updateMultipleTransactions(idsToFinalise, { status: 'finalised' });
+                await dbOperations.updateBatch(batch.id, { lastModified: new Date().toISOString() });
+                setTransactions(currentTransactions => currentTransactions.filter(t => !idsToFinalise.includes(t.id)));
+                alert(`${idsToFinalise.length} transaction(s) moved to the Finalise page.`);
+            };
+
+            const handleExportUncleared = () => {
+                const unclearedTransactions = transactions.filter(t => !t.mappedLedger);
+
+                if (unclearedTransactions.length === 0) {
+                    alert("No uncleared entries to export.");
+                    return;
+                }
+
+                const dataForExport = unclearedTransactions.map(txn => ({
+                    'Date': formatDateDDMMYYYY(txn.date),
+                    'Particulars': txn.particulars,
+                    'Debit': txn.debit > 0 ? txn.debit : null,
+                    'Credit': txn.credit > 0 ? txn.credit : null,
+                    'Voucher Type': txn.voucherType,
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(dataForExport);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Uncleared Entries");
+                XLSX.writeFile(workbook, `Uncleared_Transactions_${batch.bankName || 'Export'}.xlsx`);
+            };
+            
+            const processedTransactions = useMemo(() => {
+                let filtered = [...transactions];
+                if (filters.particulars) filtered = filtered.filter(t => t.particulars?.toLowerCase().includes(filters.particulars.toLowerCase()));
+                if (filters.voucherType) filtered = filtered.filter(t => t.voucherType === filters.voucherType);
+                if (filters.mappedLedger) filtered = filtered.filter(t => t.mappedLedger?.toLowerCase().includes(filters.mappedLedger.toLowerCase()));
+                if (filters.dateFrom) filtered = filtered.filter(t => new Date(t.date) >= new Date(filters.dateFrom));
+                if (filters.dateTo) filtered = filtered.filter(t => new Date(t.date) <= new Date(filters.dateTo));
+                if (filters.debitFrom) filtered = filtered.filter(t => t.debit >= parseFloat(filters.debitFrom));
+                if (filters.debitTo) filtered = filtered.filter(t => t.debit <= parseFloat(filters.debitTo));
+                if (filters.creditFrom) filtered = filtered.filter(t => t.credit >= parseFloat(filters.creditFrom));
+                if (filters.creditTo) filtered = filtered.filter(t => t.credit <= parseFloat(filters.creditTo));
+
+                if (sortConfig.key) {
+                    filtered.sort((a, b) => {
+                        const valA = a[sortConfig.key];
+                        const valB = b[sortConfig.key];
+                        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                return filtered;
+            }, [transactions, filters, sortConfig]);
+
+            // Automatically reset to page 1 when filters or sorting change
+            useEffect(() => {
+                setCurrentPage(1);
+            }, [processedTransactions]);
+
+            const summaryStats = useMemo(() => {
+                const totalDebit = processedTransactions.reduce((sum, t) => sum + (t.debit || 0), 0);
+                const totalCredit = processedTransactions.reduce((sum, t) => sum + (t.credit || 0), 0);
+                const transactionCount = processedTransactions.length;
+                
+                return {
+                    totalDebit: totalDebit.toFixed(2),
+                    totalCredit: totalCredit.toFixed(2),
+                    transactionCount
+                };
+            }, [processedTransactions]);
+
+            const paginatedTransactions = useMemo(() => {
+                const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+                return processedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+            }, [processedTransactions, currentPage]);
+            
+            const areAllFilteredSelected = () => {
+                if (processedTransactions.length === 0) return false;
+                // Robust check: ensures every currently filtered transaction is in the selection set.
+                return processedTransactions.every(t => selectedRows.has(t.id));
+            };
+
+            const toggleSelectAll = () => {
+                // If all filtered transactions are already selected, clear the selection.
+                if (areAllFilteredSelected()) {
+                    setSelectedRows(new Set());
+                } else {
+                    // Otherwise, select all (and only) the currently filtered transactions.
+                    const allFilteredIds = new Set(processedTransactions.map(t => t.id));
+                    setSelectedRows(allFilteredIds);
+                }
+            };
+
+            if (loading) return <div>Loading transactions...</div>;
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h2>Transaction Clearing - {batch.bankName}</h2>
+                        <button className="btn btn-secondary" onClick={onBack}>Back to Dashboard</button>
+                    </div>
+
+                    <div className="summary-stats">
+                        <div className="summary-item debit">
+                            <h3>Total Debits</h3>
+                            <div className="value">₹{summaryStats.totalDebit}</div>
+                        </div>
+                        <div className="summary-item credit">
+                            <h3>Total Credits</h3>
+                            <div className="value">₹{summaryStats.totalCredit}</div>
+                        </div>
+                        <div className="summary-item count">
+                            <h3>Transaction Count</h3>
+                            <div className="value">{summaryStats.transactionCount}</div>
+                        </div>
+                    </div>
+
+                    <div className="action-bar">
+                        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                            <button className="btn btn-primary" onClick={() => setIsCreateLedgerOpen(true)}>Create Ledger</button>
+                            {selectedRows.size > 0 && (
+                                <button className="btn btn-warning" onClick={() => setIsBulkMapModalOpen(true)}>Bulk Map ({selectedRows.size})</button>
+                            )}
+                             <button className="btn btn-secondary" onClick={() => setFilters(initialFilters)}>Clear Filters</button>
+                             <button className="btn btn-secondary" onClick={handleExportUncleared}>Export Uncleared Entries</button>
+                        </div>
+                        <Pagination currentPage={currentPage} totalPages={Math.ceil(processedTransactions.length / ITEMS_PER_PAGE)} onPageChange={setCurrentPage} />
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            <button className="btn btn-primary" onClick={onGoToFinalise}>View Finalise Page</button>
+                            <button className="btn btn-success" onClick={handlePushToFinalise}>Push Mapped to Finalise</button>
+                        </div>
+                    </div>
+                    {isCreateLedgerOpen && <CreateLedgerModal onClose={() => setIsCreateLedgerOpen(false)} onSave={handleSaveNewLedger} />}
+                    {isBulkMapModalOpen && <BulkMappingModal ledgers={ledgers} onClose={() => setIsBulkMapModalOpen(false)} onApply={handleApplyBulkMap} onClearSelection={() => { setSelectedRows(new Set()); setIsBulkMapModalOpen(false); }} />}
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onChange={toggleSelectAll} checked={areAllFilteredSelected()} /></th>
+                                    <th className="sortable" onClick={() => requestSort('date')}>Date</th>
+                                    <th>Particulars</th>
+                                    <th className="sortable" onClick={() => requestSort('debit')}>Debit</th>
+                                    <th className="sortable" onClick={() => requestSort('credit')}>Credit</th>
+                                    <th>Voucher Type</th>
+                                    <th>Ledger Mapping</th>
+                                </tr>
+                                <tr className="filter-row">
+                                    <td></td>
+                                    <td>
+                                        <div className="filter-range-group">
+                                            <input type="date" name="dateFrom" value={filters.dateFrom} onChange={handleFilterChange} className="input"/>
+                                            <input type="date" name="dateTo" value={filters.dateTo} onChange={handleFilterChange} className="input"/>
+                                        </div>
+                                    </td>
+                                    <td><input type="text" name="particulars" value={filters.particulars} onChange={handleFilterChange} className="input" placeholder="Search..."/></td>
+                                    <td>
+                                        <div className="filter-range-group">
+                                            <input type="number" name="debitFrom" value={filters.debitFrom} onChange={handleFilterChange} className="input" placeholder="Min"/>
+                                            <input type="number" name="debitTo" value={filters.debitTo} onChange={handleFilterChange} className="input" placeholder="Max"/>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="filter-range-group">
+                                            <input type="number" name="creditFrom" value={filters.creditFrom} onChange={handleFilterChange} className="input" placeholder="Min"/>
+                                            <input type="number" name="creditTo" value={filters.creditTo} onChange={handleFilterChange} className="input" placeholder="Max"/>
+                                        </div>
+                                    </td>
+                                    <td><select name="voucherType" value={filters.voucherType} onChange={handleFilterChange} className="select"><option value="">All</option><option value="Payment">Payment</option><option value="Receipt">Receipt</option></select></td>
+                                    <td><input type="text" name="mappedLedger" value={filters.mappedLedger} onChange={handleFilterChange} className="input" placeholder="Search..."/></td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedTransactions.map(txn => (
+                                    <tr key={txn.id}>
+                                        <td><input type="checkbox" checked={selectedRows.has(txn.id)} onChange={() => {
+                                            const newSelection = new Set(selectedRows);
+                                            if (newSelection.has(txn.id)) newSelection.delete(txn.id); else newSelection.add(txn.id);
+                                            setSelectedRows(newSelection);
+                                        }}/></td>
+                                        <td>{formatDateDDMMYYYY(txn.date)}</td>
+                                        <td className="wrap" title={txn.particulars}>{txn.particulars}</td>
+                                        <td>{txn.debit > 0 ? txn.debit.toFixed(2) : ''}</td>
+                                        <td>{txn.credit > 0 ? txn.credit.toFixed(2) : ''}</td>
+                                        <td><span className={`status-badge ${txn.voucherType === 'Payment' ? 'status-pending' : 'status-cleared'}`}>{txn.voucherType}</span></td>
+                                        <td>
+                                            <select className="select" value={txn.mappedLedger || ''} onChange={e => handleLedgerMap(txn.id, e.target.value)}>
+                                                <option value="">-- Select / Unmap Ledger --</option>
+                                                {ledgers.map(l => <option key={l.id || l.name} value={l.name}>{l.name}</option>)}
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function EditableLedgerModal({ isOpen, onClose, ledgers, setLedgers }) {
+            const [selectedLedger, setSelectedLedger] = useState(null);
+
+            if (!isOpen) return null;
+
+            const handleSave = (updatedLedger) => {
+                setLedgers(current => current.map(l => l.id === updatedLedger.id ? updatedLedger : l));
+                setSelectedLedger(null); // Go back to list view
+            };
+
+            const handleDelete = (ledgerId) => {
+                if (confirm('Are you sure you want to delete this ledger? This cannot be undone.')) {
+                    setLedgers(current => current.filter(l => l.id !== ledgerId));
+                    setSelectedLedger(null); // Go back to list view
+                }
+            };
+
+            return (
+                <div className="modal">
+                    <div className="modal-content" style={{maxWidth: '600px'}}>
+                        {selectedLedger ? (
+                            <LedgerEditView ledger={selectedLedger} onSave={handleSave} onCancel={() => setSelectedLedger(null)} onDelete={handleDelete} />
+                        ) : (
+                            <LedgerListView ledgers={ledgers} onSelect={setSelectedLedger} onClose={onClose} />
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function LedgerListView({ ledgers, onSelect, onClose }) {
+            return (
+                <div>
+                    <h3 style={{ marginBottom: '20px' }}>Review Custom Ledgers</h3>
+                    <div className="ledger-table-container" style={{maxHeight: '50vh'}}>
+                        <table className="table ledger-table">
+                            <thead><tr><th>Ledger Name</th><th>Group</th></tr></thead>
+                            <tbody>
+                                {ledgers.map(ledger => (
+                                    <tr key={ledger.id} onClick={() => onSelect(ledger)} style={{cursor: 'pointer'}}>
+                                        <td>{ledger.name}</td>
+                                        <td>{ledger.group}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
+                    </div>
+                </div>
+            );
+        }
+
+        function LedgerEditView({ ledger, onSave, onCancel, onDelete }) {
+            const [formData, setFormData] = useState(ledger);
+
+            const handleChange = (field, value) => {
+                const updatedValue = field === 'openingBalance' ? parseFloat(value) || 0 : value;
+                setFormData(prev => ({ ...prev, [field]: updatedValue }));
+            };
+
+            return (
+                <div>
+                    <h3 style={{ marginBottom: '20px' }}>Edit Ledger: {ledger.name}</h3>
+                    <div className="form-group">
+                        <label>Ledger Name *</label>
+                        <input type="text" className="input" value={formData.name} onChange={(e) => handleChange('name', e.target.value)} required />
+                    </div>
+                    <div className="form-group">
+                        <label>Group *</label>
+                        <select className="select" value={formData.group} onChange={(e) => handleChange('group', e.target.value)} required>
+                            {TALLY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Opening Balance</label>
+                        <input type="number" step="0.01" className="input" value={formData.openingBalance} onChange={(e) => handleChange('openingBalance', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                        <label>Dr/Cr</label>
+                        <select className="select" value={formData.drCr} onChange={(e) => handleChange('drCr', e.target.value)}>
+                            <option value="Dr">Dr</option>
+                            <option value="Cr">Cr</option>
+                        </select>
+                    </div>
+                    <div className="modal-footer" style={{justifyContent: 'space-between'}}>
+                        <div>
+                            <button type="button" className="btn btn-danger" onClick={() => onDelete(ledger.id)}>Delete</button>
+                        </div>
+                        <div>
+                            <button type="button" className="btn btn-secondary" onClick={onCancel} style={{marginRight: '10px'}}>Back to List</button>
+                            <button type="button" className="btn" onClick={() => onSave(formData)}>Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function FinalisePage({ batch, onBack, onBackToDashboard }) {
+            if (!batch) return null;
+            const initialFilters = { dateFrom: '', dateTo: '', debitLedger: '', creditLedger: '', voucherType: '', amountFrom: '', amountTo: '', narration: '' };
+            const [finalisedTransactions, setFinalisedTransactions] = useState([]);
+            const [customLedgers, setCustomLedgers] = useState([]);
+            const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+            const [selectedTransactions, setSelectedTransactions] = useState(new Set());
+            const [currentPage, setCurrentPage] = useState(1);
+            const [filters, setFilters] = useState(initialFilters);
+            const ITEMS_PER_PAGE = 100;
+
+            const loadFinalisedData = async () => {
+                const [txns, lgrs] = await Promise.all([
+                    dbOperations.getTransactionsByBatch(batch.id, 'finalised'),
+                    dbOperations.getLedgersByBatch(batch.id)
+                ]);
+                const transformed = txns.map(txn => ({
+                    ...txn,
+                    debitLedger: txn.voucherType === 'Receipt' ? batch.bankName : txn.mappedLedger,
+                    creditLedger: txn.voucherType === 'Payment' ? batch.bankName : txn.mappedLedger,
+                    amount: txn.debit || txn.credit,
+                    narration: txn.particulars
+                }));
+                setFinalisedTransactions(transformed);
+                const filteredCustomLedgers = lgrs.filter(l => !l.isMaster).sort((a, b) => a.name.localeCompare(b.name));
+                setCustomLedgers(filteredCustomLedgers);
+            };
+
+            useEffect(() => { loadFinalisedData(); }, [batch]);
+            
+            const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
+
+            const handlePushBack = async () => {
+                if (selectedTransactions.size === 0) return;
+                await dbOperations.updateMultipleTransactions(Array.from(selectedTransactions), { status: 'pending', mappedLedger: null });
+                await dbOperations.updateBatch(batch.id, { lastModified: new Date().toISOString() });
+                loadFinalisedData();
+                setSelectedTransactions(new Set());
+            };
+
+            const generateVouchersXML = () => {
+                if (processedTransactions.length === 0) return alert('No finalised transactions to export.');
+                const xml = generateXML('vouchers', processedTransactions);
+                downloadFile(xml, 'Vouchers.xml', 'application/xml');
+            };
+            
+            const generateMastersXML = () => {
+                if (customLedgers.length === 0) return alert('No new ledgers to export.');
+                const xml = generateXML('masters', customLedgers);
+                downloadFile(xml, 'Masters.xml', 'application/xml');
+            };
+            
+            const processedTransactions = useMemo(() => {
+                let filtered = [...finalisedTransactions];
+                if (filters.narration) filtered = filtered.filter(t => t.narration?.toLowerCase().includes(filters.narration.toLowerCase()));
+                if (filters.voucherType) filtered = filtered.filter(t => t.voucherType === filters.voucherType);
+                if (filters.debitLedger) filtered = filtered.filter(t => t.debitLedger?.toLowerCase().includes(filters.debitLedger.toLowerCase()));
+                if (filters.creditLedger) filtered = filtered.filter(t => t.creditLedger?.toLowerCase().includes(filters.creditLedger.toLowerCase()));
+                if (filters.dateFrom) filtered = filtered.filter(t => new Date(t.date) >= new Date(filters.dateFrom));
+                if (filters.dateTo) filtered = filtered.filter(t => new Date(t.date) <= new Date(filters.dateTo));
+                if (filters.amountFrom) filtered = filtered.filter(t => t.amount >= parseFloat(filters.amountFrom));
+                if (filters.amountTo) filtered = filtered.filter(t => t.amount <= parseFloat(filters.amountTo));
+                return filtered;
+            }, [finalisedTransactions, filters]);
+            
+            useEffect(() => { setCurrentPage(1); }, [processedTransactions]);
+
+            const summaryStats = useMemo(() => {
+                const totalDebit = processedTransactions.filter(t => t.voucherType === 'Payment').reduce((sum, t) => sum + (t.amount || 0), 0);
+                const totalCredit = processedTransactions.filter(t => t.voucherType === 'Receipt').reduce((sum, t) => sum + (t.amount || 0), 0);
+                return { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), transactionCount: processedTransactions.length };
+            }, [processedTransactions]);
+
+            const paginatedTransactions = useMemo(() => {
+                const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+                return processedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+            }, [processedTransactions, currentPage]);
+
+            const areAllFilteredSelected = () => {
+                if (processedTransactions.length === 0) return false;
+                return processedTransactions.every(t => selectedTransactions.has(t.id));
+            };
+
+            const toggleSelectAll = () => {
+                if (areAllFilteredSelected()) {
+                    setSelectedTransactions(new Set());
+                } else {
+                    const allFilteredIds = new Set(processedTransactions.map(t => t.id));
+                    setSelectedTransactions(allFilteredIds);
+                }
+            };
+
+            return (
+                <div>
+                    <EditableLedgerModal isOpen={isLedgerModalOpen} onClose={() => setIsLedgerModalOpen(false)} ledgers={customLedgers} setLedgers={setCustomLedgers} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h2>Finalise & Export - {batch.bankName}</h2>
+                        <div>
+                            <button className="btn btn-secondary" onClick={onBack} style={{marginRight: '10px'}}>Back to Clearing</button>
+                            <button className="btn btn-secondary" onClick={onBackToDashboard}>Back to Dashboard</button>
+                        </div>
+                    </div>
+                    
+                    <div className="summary-stats">
+                        <div className="summary-item debit"><h3>Total Debits</h3><div className="value">₹{summaryStats.totalDebit}</div></div>
+                        <div className="summary-item credit"><h3>Total Credits</h3><div className="value">₹{summaryStats.totalCredit}</div></div>
+                        <div className="summary-item count"><h3>Transaction Count</h3><div className="value">{summaryStats.transactionCount}</div></div>
+                    </div>
+
+                    <div className="action-bar">
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            <button className="btn btn-warning" onClick={handlePushBack} disabled={selectedTransactions.size === 0}>Push Back to Clearing ({selectedTransactions.size})</button>
+                            <button className="btn btn-secondary" onClick={() => setFilters(initialFilters)}>Clear Filters</button>
+                        </div>
+                        <Pagination currentPage={currentPage} totalPages={Math.ceil(processedTransactions.length / ITEMS_PER_PAGE)} onPageChange={setCurrentPage} />
+                        <div style={{display: 'flex', gap: '10px'}}>
+                            {customLedgers.length > 0 && (
+                                <button className="btn btn-primary" onClick={() => setIsLedgerModalOpen(true)}>Review/Edit Ledgers ({customLedgers.length})</button>
+                            )}
+                            <button className="btn btn-success" onClick={generateMastersXML}>Generate Masters.xml</button>
+                            <button className="btn btn-success" onClick={generateVouchersXML}>Generate Vouchers.xml</button>
+                        </div>
+                    </div>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onChange={toggleSelectAll} checked={areAllFilteredSelected()} /></th>
+                                    <th>Date</th><th>Debit Ledger</th><th>Credit Ledger</th><th>Voucher Type</th><th>Amount</th><th>Narration</th>
+                                </tr>
+                                <tr className="filter-row">
+                                    <td></td>
+                                    <td><div className="filter-range-group"><input type="date" name="dateFrom" value={filters.dateFrom} onChange={handleFilterChange} className="input"/><input type="date" name="dateTo" value={filters.dateTo} onChange={handleFilterChange} className="input"/></div></td>
+                                    <td><input type="text" name="debitLedger" value={filters.debitLedger} onChange={handleFilterChange} className="input" placeholder="Search..."/></td>
+                                    <td><input type="text" name="creditLedger" value={filters.creditLedger} onChange={handleFilterChange} className="input" placeholder="Search..."/></td>
+                                    <td><select name="voucherType" value={filters.voucherType} onChange={handleFilterChange} className="select"><option value="">All</option><option value="Payment">Payment</option><option value="Receipt">Receipt</option></select></td>
+                                    <td><div className="filter-range-group"><input type="number" name="amountFrom" value={filters.amountFrom} onChange={handleFilterChange} className="input" placeholder="Min"/><input type="number" name="amountTo" value={filters.amountTo} onChange={handleFilterChange} className="input" placeholder="Max"/></div></td>
+                                    <td><input type="text" name="narration" value={filters.narration} onChange={handleFilterChange} className="input" placeholder="Search..."/></td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedTransactions.map(txn => (
+                                    <tr key={txn.id}>
+                                        <td><input type="checkbox" checked={selectedTransactions.has(txn.id)} onChange={() => {
+                                            const newSelection = new Set(selectedTransactions);
+                                            if (newSelection.has(txn.id)) newSelection.delete(txn.id); else newSelection.add(txn.id);
+                                            setSelectedTransactions(newSelection);
+                                        }} /></td>
+                                        <td>{formatDateDDMMYYYY(txn.date)}</td><td>{txn.debitLedger}</td><td>{txn.creditLedger}</td>
+                                        <td><span className={`status-badge ${txn.voucherType === 'Payment' ? 'status-pending' : 'status-cleared'}`}>{txn.voucherType}</span></td>
+                                        <td>{txn.amount.toFixed(2)}</td><td className="wrap">{txn.narration}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+        
+        // --- Utility Components ---
+        function FileUpload({ accept, onFileSelect, disabled, label }) {
+            const [dragOver, setDragOver] = useState(false);
+            const fileInputRef = useRef(null);
+            const handleDrop = (e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length > 0) onFileSelect(e.dataTransfer.files[0]); };
+            const handleDragOver = (e) => { e.preventDefault(); setDragOver(true); };
+            return (
+                <div className={`upload-area ${dragOver ? 'dragover' : ''}`} onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={() => setDragOver(false)} onClick={() => fileInputRef.current?.click()}>
+                    <input ref={fileInputRef} type="file" accept={accept} onChange={(e) => e.target.files && onFileSelect(e.target.files[0])} style={{ display: 'none' }} disabled={disabled} />
+                    <div><p style={{ marginBottom: '10px', fontSize: '16px', fontWeight: '500' }}>{label}</p><p style={{ color: 'var(--text-secondary)' }}>Click or drag & drop</p></div>
+                </div>
+            );
+        }
+
+        function Pagination({ currentPage, totalPages, onPageChange }) {
+            const [inputValue, setInputValue] = useState(currentPage);
+
+            useEffect(() => {
+                setInputValue(currentPage);
+            }, [currentPage]);
+
+            const handleInputChange = (e) => {
+                setInputValue(e.target.value);
+            };
+
+            const handlePageJump = (e) => {
+                if (e.key === 'Enter' || e.type === 'blur') {
+                    const pageNum = parseInt(inputValue, 10);
+                    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                        onPageChange(pageNum);
+                    } else {
+                        setInputValue(currentPage); // Reset to current page if input is invalid
+                    }
+                }
+            };
+
+            if (totalPages <= 1) return null;
+
+            return (
+                <div className="pagination">
+                    <button className="btn btn-secondary" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
+                    <span style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
+                        Page
+                        <input
+                            type="number"
+                            value={inputValue}
+                            onChange={handleInputChange}
+                            onKeyDown={handlePageJump}
+                            onBlur={handlePageJump}
+                            className="input pagination-input"
+                            min="1"
+                            max={totalPages}
+                            step="1"
+                        />
+                        of {totalPages}
+                    </span>
+                    <button className="btn btn-secondary" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
+                </div>
+            );
+        }
+
+        function BulkMappingModal({ ledgers, onClose, onApply, onClearSelection }) {
+            const [selectedLedger, setSelectedLedger] = useState('');
+            const handleApply = () => {
+                if (!selectedLedger) {
+                   if (confirm('Are you sure you want to unmap all selected transactions?')) {
+                       onApply('');
+                   }
+                } else {
+                   onApply(selectedLedger);
+                }
+            };
+            return (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h3 style={{marginBottom: '20px'}}>Bulk Ledger Mapping</h3>
+                        <div className="form-group">
+                            <label>Select Ledger to apply to all selected transactions</label>
+                            <select className="select" value={selectedLedger} onChange={(e) => setSelectedLedger(e.target.value)}>
+                                <option value="">-- Unmap Selected Transactions --</option>
+                                {ledgers.map(ledger => <option key={ledger.id || ledger.name} value={ledger.name}>{ledger.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn btn-secondary" onClick={onClearSelection}>Clear Selection & Close</button>
+                            <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                            <button className="btn" onClick={handleApply}>Apply Mapping</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function CreateLedgerModal({ onClose, onSave }) {
+            const [formData, setFormData] = useState({ name: '', group: 'Bank Accounts', openingBalance: 0, drCr: 'Dr' });
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.name.trim() || !formData.group) { alert('Please fill all required fields'); return; }
+                onSave(formData);
+            };
+            return (
+                <div className="modal">
+                    <div className="modal-content">
+                        <h3 style={{ marginBottom: '20px' }}>Create New Ledger</h3>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Ledger Name *</label>
+                                <input type="text" className="input" value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} required />
+                            </div>
+                            <div className="form-group">
+                                <label>Group *</label>
+                                <select className="select" value={formData.group} onChange={(e) => setFormData(prev => ({ ...prev, group: e.target.value }))} required>
+                                    <option value="">Select a group...</option>
+                                    {TALLY_GROUPS.map(group => <option key={group} value={group}>{group}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Opening Balance</label>
+                                <input type="number" step="0.01" className="input" value={formData.openingBalance} onChange={(e) => setFormData(prev => ({ ...prev, openingBalance: parseFloat(e.target.value) || 0 }))} />
+                            </div>
+                            <div className="form-group">
+                                <label>Dr/Cr</label>
+                                <select className="select" value={formData.drCr} onChange={(e) => setFormData(prev => ({ ...prev, drCr: e.target.value }))}>
+                                    <option value="Dr">Dr</option>
+                                    <option value="Cr">Cr</option>
+                                </select>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                                <button type="submit" className="btn">Create Ledger</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TallyBridge />, document.getElementById('root'));
+    </script>
+</body>
+</html>
