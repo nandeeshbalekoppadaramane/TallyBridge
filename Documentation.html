@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TallyBridge - Documentation</title>
+    <style>
+        :root {
+            --bg-primary: #111827;
+            --bg-secondary: #1F2937;
+            --card-bg: #374151;
+            --text-primary: #F9FAFB;
+            --text-secondary: #D1D5DB;
+            --primary-blue: #3B82F6;
+            --primary-blue-hover: #2563EB;
+            --success-green: #10B981;
+            --warning-yellow: #F59E0B;
+            --danger-red: #EF4444;
+            --border-color: #4B5563;
+            --input-bg: #374151;
+            --hover-bg: #4B5563;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; padding: 20px 0; border-bottom: 2px solid var(--border-color); }
+        .header h1 { font-size: 2.5rem; color: var(--primary-blue); margin-bottom: 10px; }
+        .header p { color: var(--text-secondary); font-size: 1.1rem; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .btn { background: var(--primary-blue); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+        .btn:hover { background: var(--primary-blue-hover); transform: translateY(-1px); }
+        h2 { color: var(--primary-blue); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; }
+        h3 { color: var(--text-primary); margin-top: 20px; margin-bottom: 10px; }
+        p, li { color: var(--text-secondary); margin-bottom: 10px; }
+        ol, ul { padding-left: 20px; }
+        strong { color: var(--text-primary); font-weight: 600; }
+        code { background-color: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TallyBridge Documentation</h1>
+            <p>Your complete guide to using the Bank Statement Clearance Tool</p>
+            <a href="./TallyBridge.html" class="btn" style="margin-top: 20px;">Back to Application</a>
+        </div>
+
+        <div class="card">
+            <h2>Step 1: Getting Started on the Dashboard</h2>
+            <p>When you first open TallyBridge, you'll land on the Dashboard, which presents two main options:</p>
+            <ul>
+                <li><strong>Start with New Bank Statement:</strong> Choose this to begin a new reconciliation process from scratch.</li>
+                <li><strong>Continue Previous Work:</strong> Select this to load a previously saved batch and continue where you left off.</li>
+            </ul>
+            <p>To start a new batch, you will be prompted to enter the Tally <strong>Company Name</strong> for which you are clearing transactions. This name is used for reference throughout the process.</p>
+        </div>
+
+        <div class="card">
+            <h2>Step 2: Import Tally Masters</h2>
+            <p>Next, you need to provide the application with a list of your existing ledgers from Tally. This allows TallyBridge to know which ledgers are available for mapping.</p>
+            <h3>How to Export Masters from Tally:</h3>
+            <ol>
+                <li>In "Gateway of Tally", press <strong>Alt + E</strong> (Export).</li>
+                <li>Select <strong>Masters</strong> and press Enter.</li>
+                <li>Press <strong>C</strong> (Configure).</li>
+                <li>Set "File Format" to <strong>ASCII (Comma delimited)</strong>.</li>
+                <li>Set the <strong>Folder Path</strong> and <strong>File Name</strong>.</li>
+                <li>Press <strong>Ctrl + A</strong> to save the configuration.</li>
+                <li>Press <strong>E</strong> (Send) to export the <code>.txt</code> file.</li>
+            </ol>
+            <p>Once you have the <code>.txt</code> file, upload it to the application.</p>
+        </div>
+
+        <div class="card">
+            <h2>Step 3: Import Your Bank Statement</h2>
+            <p>The application requires your bank statement data in a specific Excel format.</p>
+            <ol>
+                <li>Click the <strong>Download Template</strong> button to get the standard <code>.xlsx</code> file.</li>
+                <li>Open the template and fill it with your bank statement details.
+                    <ul>
+                        <li><strong>Note on Debit/Credit:</strong> The template follows standard bank statement conventions. <strong>Credit</strong> means deposits/receipts, and <strong>Debit</strong> means withdrawals/payments. This applies to all account types (Savings, Current, CC, OD).</li>
+                    </ul>
+                </li>
+                <li>Save the file and upload it back into the TallyBridge application.</li>
+                <li>You will be asked to select the corresponding <strong>Bank Account Ledger</strong> from the list of masters you imported earlier and You want to create a New Ledger then you can create it as well. This links the statement to the correct account in Tally.</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>Step 4: Clearing Transactions</h2>
+            <p>After importing, you'll be taken to the "Clearing Page," where all your bank transactions are displayed in a table. Here's how to process them:</p>
+            <h3>Ledger Mapping</h3>
+            <p>For each transaction row, use the dropdown in the <strong>Ledger Mapping</strong> column to select the appropriate Tally ledger that corresponds to the transaction's particulars.</p>
+            <h3>Creating New Ledgers</h3>
+            <p>If a required ledger doesn't exist in the dropdown, click the <strong>Create Ledger</strong> button. A modal will appear where you can enter the new ledger's name, Tally group, and opening balance. Once created, it will be available for mapping.</p>
+            <h3>Bulk Mapping</h3>
+            <p>To speed up the process, you can map multiple transactions at once.
+                <ol>
+                    <li>Use the checkboxes in the first column to select multiple transactions.</li>
+                    <li>The <strong>Bulk Map</strong> button will become active, showing the number of selected items.</li>
+                    <li>Click it, choose the correct ledger from the modal, and click "Apply Mapping" to assign that ledger to all selected transactions.</li>
+                </ol>
+            </p>
+            <h3>Filtering and Sorting</h3>
+            <p>Use the filter row at the top of the table to narrow down transactions by date, particulars, amount, and more. You can also click on sortable column headers (like Date, Debit, or Credit) to organize the data.</p>
+        </div>
+
+        <div class="card">
+            <h2>Step 5: Finalizing Transactions</h2>
+            <p>Once you have mapped ledgers to the transactions you wish to finalise, you need to move them to the next stage.</p>
+            <ol>
+                <li>Click the <strong>Push Mapped to Finalise</strong> button. This action takes all transactions that have a ledger mapped and moves them to the "Finalise Page."</li>
+                <li>To navigate to this page, click the <strong>View Finalise Page</strong> button.</li>
+            </ol>
+        </div>
+        
+        <div class="card">
+            <h2>Step 6: Review and Export</h2>
+            <p>The "Finalise Page" is the last step before exporting your data for Tally. It shows a summary of the vouchers that will be created.</p>
+            <h3>Pushing Back to Clearing</h3>
+            <p>If you notice a mistake or need to change a ledger mapping, select the incorrect transaction(s) using the checkboxes and click the <strong>Push Back to Clearing</strong> button. This will move the selected items back to the previous page for re-mapping.</p>
+            <h3>Generating XML Files</h3>
+            <p>This is the most important part of the process. You must generate and import two separate XML files in the correct order.</p>
+            <ol>
+                <li>
+                    <strong>Generate Masters.xml:</strong> Click this button first. It creates an XML file containing all the <strong>new ledgers</strong> you created during this session.
+                </li>
+                <li>
+                    <strong>Generate Vouchers.xml:</strong> Click this button second. It creates an XML file containing all the cleared bank transactions ready to be imported as vouchers into Tally.
+                </li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>Step 7: How to Import XML Files into Tally</h2>
+            <p>After downloading the two XML files from TallyBridge, follow these steps to import them into Tally.</p>
+            <p style="color: var(--warning-yellow);"><strong>Important:</strong> Always take a backup of your Tally company data before performing any import.</p>
+            
+            <h3>Part 1: Import Masters</h3>
+            <ol>
+                <li>Place the generated <code>Masters.xml</code> file in an easily accessible folder on your computer (e.g., <code>C:\Tally_Import</code>).</li>
+                <li>Open Tally and select the company you are working with.</li>
+                <li>From the "Gateway of Tally", navigate to <strong>Import Data &rarr; Masters</strong>.</li>
+                <li>For the "File Path", enter the full path to your file (e.g., <code>C:\Tally_Import\Masters.xml</code>).</li>
+                <li>Set the "Behaviour" to <strong>Modify with new data</strong>. This will add your new ledgers without affecting existing ones.</li>
+                <li>Press Enter to begin the import.</li>
+            </ol>
+
+            <h3>Part 2: Import Vouchers</h3>
+            <ol>
+                <li>After the masters have been successfully imported, navigate back to the "Gateway of Tally".</li>
+                <li>Go to <strong>Import Data &rarr; Vouchers</strong>.</li>
+                <li>For the "File Path", enter the full path to your <code>Vouchers.xml</code> file (e.g., <code>C:\Tally_Import\Vouchers.xml</code>).</li>
+                <li>Press Enter to import all the cleared transactions.</li>
+                <li>Once complete, you can verify the imported data by checking the Day Book or relevant ledger reports in Tally.</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
